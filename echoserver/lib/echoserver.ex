@@ -6,14 +6,15 @@ defmodule EchoServer do
   """
 
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, [], opts)
+    GenServer.start_link(__MODULE__, nil, opts)
   end
 
-  def init(_) do
-    {:ok, nil}
+  def init(init_arg) do
+    {:ok, init_arg}
   end
 
-  def handle_call(:ping, _from, state) do
+  def handle_call(:ping, {pid, _ref}, state) do
+    send(pid, {:pong, node()})
     {:reply, {:pong, node()}, state}
   end
 end
