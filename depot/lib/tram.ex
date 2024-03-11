@@ -2,17 +2,17 @@ defmodule Tram do
   use GenServer
 
   @moduledoc """
-  Попытка имплементации логики работы трамвая
+  Логика работы трамвая
   """
 
-  defstruct speed: 0, doors: :closed, accident: false
+  defstruct speed: 0, doors: :closed, accident: false, state: :stop
 
-  def start_link() do
+  def start_link do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
   def init(_init_arg) do
-    {:ok, %{state: :stop, tram: %Tram{}}}
+    {:ok, %Tram{}}
   end
 
   def get_state(tram_pid) do
@@ -20,65 +20,65 @@ defmodule Tram do
   end
 
   def move(tram_pid) do
-    GenServer.call(tram_pid, %{state: :move})
+    GenServer.call(tram_pid, :move)
   end
 
   def stop(tram_pid) do
-    GenServer.call(tram_pid, %{state: :stop})
+    GenServer.call(tram_pid, :stop)
   end
 
   def open_doors(tram_pid) do
-    GenServer.call(tram_pid, %{state: :open_doors})
+    GenServer.call(tram_pid, :open_doors)
   end
 
   def close_doors(tram_pid) do
-    GenServer.call(tram_pid, %{state: :close_doors})
+    GenServer.call(tram_pid, :close_doors)
   end
 
   def accident(tram_pid) do
-    GenServer.call(tram_pid, %{state: :accident})
+    GenServer.call(tram_pid, :accident)
   end
 
   def handle_call(:get_state, _from, state) do
     {:reply, state, state}
   end
 
-  def handle_call(%{state: :move}, _from, %{state: state, tram: tram} = args) do
-    case state do
-      :stop -> {:reply, :movement, %{state: :movement, tram: %{tram | speed: 10}}}
-      :movement -> {:reply, state, args}
-      _ -> {:reply, "Движение невозможно", args}
-    end
-  end
+  def handle_call(:move, _from, %Tram{state: :stop} = tram),
+    do: {:reply, :movement, %Tram{tram | state: :movement, speed: 10}}
 
-  def handle_call(%{state: :stop}, _from, %{state: state, tram: tram} = args) do
-    case state do
-      :movement -> {:reply, :stop, %{state: :stop, tram: %{tram | speed: 0}}}
-      :stop -> {:reply, state, args}
-      :doors_are_opened -> {:reply, state, args}
-      :accident -> {:reply, :accident, %{state: :stop, tram: %{tram | speed: 0}}}
-    end
-  end
+  def handle_call(:move, _from, %Tram{state: :movement} = tram),
+    do: {:reply, :movement, tram}
 
-  def handle_call(%{state: :open_doors}, _from, %{state: state, tram: tram} = args) do
-    case state do
-      :stop -> {:reply, :doors_are_opened, %{state: :doors_are_opened, tram: %{tram | doors: :opened}}}
-      :doors_are_opened -> {:reply, state, args}
-      :accident -> {:reply, :doors_are_opened, %{state: :doors_are_opened, tram: %{tram | doors: :opened}}}
-      _ -> {:reply, "Нельзя открыть двери", args}
-    end
-  end
+  def handle_call(:move, _from, %Tram{state: state} = tram),
+    do: {:reply, "Движение в состоянии #{state} невозможно", tram}
 
-  def handle_call(%{state: :close_doors}, _from, %{state: state, tram: tram} = args) do
-    case state do
-      :doors_are_opened -> {:reply, :doors_are_closed, %{state: :doors_are_closed, tram: %{tram | doors: :closed}}}
-      _ -> {:reply, "Двери могут быть закрытыми только при открытых дверях.", args}
-    end
-  end
+  def handle_call(:stop, _from, %Tram{state: :movement} = tram),
+    do: {:reply, :stop, %Tram{tram | state: :stop, speed: 0}}
 
-  def handle_call(%{state: :accident}, _from, %{state: state, tram: tram} = _args) do
-    case state do
-      _ -> {:reply, :accident, %{state: :accident, tram: %{tram | doors: :opened, speed: 0}}}
-    end
-  end
+  def handle_call(:stop, _from, %Tram{state: :accident} = tram),
+    do: {:reply, :accident, %Tram{tram | state: :stop, speed: 0}}
+
+  def handle_call(:stop, _from, %Tram{state: _state} = tram),
+    do: {:reply, :stop, %Tram{tram | state: :stop}}
+
+  def handle_call(:open_doors, _from, %Tram{state: :stop} = tram),
+    do: {:reply, :doors_are_opened, %Tram{tram | state: :doors_are_opened, doors: :opened}}
+
+  def handle_call(:open_doors, _from, %Tram{state: :accident} = tram),
+    do: {:reply, :doors_are_opened, %Tram{tram | state: :doors_are_opened, doors: :opened}}
+
+  def handle_call(:open_doors, _from, %Tram{state: :doors_are_opened} = tram),
+    do: {:reply, :doors_are_opened, tram}
+
+  def handle_call(:open_doors, _from, %Tram{state: state} = tram),
+    do: {:reply, "Нельзя в состоянии #{state} открыть двери", tram}
+
+  def handle_call(:close_doors, _from, %Tram{state: :doors_are_opened} = tram),
+    do: {:reply, :doors_are_closed, %Tram{tram | state: :doors_are_closed, doors: :closed}}
+
+  def handle_call(:close_doors, _from, %Tram{state: _state} = tram),
+    do: {:reply, "Двери могут быть закрытыми только при открытых дверях.", tram}
+
+  def handle_call(:accident, _from, %Tram{state: _state} = tram),
+    do: {:reply, :accident, %Tram{tram | state: :accident, doors: :opened, speed: 0}}
 end

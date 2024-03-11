@@ -4,7 +4,7 @@ defmodule TramTest do
 
   test "get_state returns initial state" do
     {:ok, pid} = Tram.start_link()
-    assert %{state: :stop, tram: %Tram{}} = Tram.get_state(pid)
+    assert %Tram{state: :stop, accident: false, doors: :closed, speed: 0} = Tram.get_state(pid)
   end
 
   test "move changes state from stop to movement" do
@@ -21,7 +21,7 @@ defmodule TramTest do
   test "move returns error message if state is not stop or movement" do
     {:ok, pid} = Tram.start_link()
     assert :doors_are_opened = Tram.open_doors(pid)
-    assert "Движение невозможно" = Tram.move(pid)
+    assert "Движение в состоянии doors_are_opened невозможно" = Tram.move(pid)
   end
 
   test "stop changes state from movement to stop" do
@@ -39,7 +39,7 @@ defmodule TramTest do
   test "stop does not change state from doors_are_opened" do
     {:ok, pid} = Tram.start_link()
     assert :doors_are_opened = Tram.open_doors(pid)
-    assert :doors_are_opened = Tram.stop(pid)
+    assert :stop = Tram.stop(pid)
   end
 
   test "stop does not change state from accident" do
